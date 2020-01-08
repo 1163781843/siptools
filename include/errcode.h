@@ -3,7 +3,8 @@
 
 #include <algorithm>
 #include <map>
-#include<memory>
+#include <memory>
+#include <iostream>
 
 class errorcode {
 	public:
