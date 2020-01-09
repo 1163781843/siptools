@@ -14,9 +14,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
-PROJECT(SIPTOOLS)
+project(SIPTOOLS)
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6.2 FATAL_ERROR)
+cmake_minimum_required(VERSION 2.6.2 FATAL_ERROR)
 if(COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
 endif(COMMAND cmake_policy)
@@ -25,11 +25,11 @@ set(CMAKE_BUILD_TYPE "Debug")
 
 include(ExternalProject)
 
-SET(OSIP_SOURCE_DIR ${PROJECT_SOURCE_DIR}/libs/libosip2-5.1.0 CACHE FILEPATH "Where to find sources for osip (libosip).")
-SET(osip_configure_opts --with-pic --enable-static)
-LIST(APPEND osip_configure_opts "CC=${CMAKE_C_COMPILER} ${CMAKE_C_COMPILER_ARG1}")
+set(OSIP_SOURCE_DIR ${PROJECT_SOURCE_DIR}/libs/libosip2-5.1.0 CACHE FILEPATH "Where to find sources for osip (libosip).")
+set(osip_configure_opts --with-pic --enable-static)
+list(APPEND osip_configure_opts "CC=${CMAKE_C_COMPILER} ${CMAKE_C_COMPILER_ARG1}")
 
-FILE(GLOB OSIP_ALL_FILES ${OSIP_SOURCE_DIR}/*)
+file(GLOB OSIP_ALL_FILES ${OSIP_SOURCE_DIR}/*)
 ExternalProject_Add(libosip
     PREFIX
         build_osip
@@ -45,42 +45,63 @@ ExternalProject_Add(libosip
         make install
 )
 
-SET(OSIP2_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/usr/lib/libosip2.a)
+add_library(osip2 STATIC IMPORTED)
+set_target_properties(osip2 PROPERTIES IMPORTED_LOCATION
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/usr/lib/libosip2.a")
 
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include
+add_library(osipparser2 STATIC IMPORTED)
+set_target_properties(osipparser2 PROPERTIES IMPORTED_LOCATION
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/usr/lib/libosipparser2.a")
+
+add_dependencies(osip2 libosip)
+add_dependencies(osipparser2 libosip)
+
+set(OSIP2_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/usr/lib/libosip2.a)
+set(OSIPPARSER2_LIBRARY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/usr/lib/libosipparser2.a)
+
+include_directories(${PROJECT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/usr/include)
 
-FIND_PACKAGE(Threads)
-IF(CMAKE_THREAD_LIBS_INIT)
-    SET(THREAD_LIBRARY ${CMAKE_THREAD_LIBS_INIT})
-ELSE(CMAKE_THREAD_LIBS_INIT)
-    MESSAGE(FATAL_ERROR "pthread lib could not be found")
-ENDIF(CMAKE_THREAD_LIBS_INIT)
+find_package(Threads)
+if(CMAKE_THREAD_LIBS_INIT)
+    set(THREAD_LIBRARY ${CMAKE_THREAD_LIBS_INIT})
+else(CMAKE_THREAD_LIBS_INIT)
+    message(FATAL_ERROR "pthread lib could not be found")
+endif(CMAKE_THREAD_LIBS_INIT)
 
-FIND_PACKAGE(LibXml2)
-IF(LIBXML2_LIBRARY)
-ELSE(LIBXML2_LIBRARY)
-    MESSAGE(FATAL_ERROR "xml2 lib could not be found")
-ENDIF(LIBXML2_LIBRARY)
+find_package(LibXml2)
+if(LIBXML2_LIBRARY)
+else(LIBXML2_LIBRARY)
+    message(FATAL_ERROR "xml2 lib could not be found")
+endif(LIBXML2_LIBRARY)
 
-LINK_LIBRARIES(-ldl -lm)
+link_libraries(-ldl -lm)
 
-ADD_EXECUTABLE(siptools
+add_executable(siptools
+    ${PROJECT_SOURCE_DIR}/main/logger.cpp
+    ${PROJECT_SOURCE_DIR}/main/thread.cpp
     ${PROJECT_SOURCE_DIR}/tport/transport.cpp
     ${PROJECT_SOURCE_DIR}/tport/udp_transport.cpp
+    ${PROJECT_SOURCE_DIR}/sip/sip.cpp
     ${PROJECT_SOURCE_DIR}/main/main.cpp
     ${PROJECT_SOURCE_DIR}/main/errcode.cpp)
 
-ADD_DEFINITIONS(
+add_dependencies(siptools
+    osip2
+    osipparser2
+)
+
+add_definitions(
     -g
     -std=c++11
 )
 
-TARGET_LINK_LIBRARIES(siptools
+target_link_libraries(siptools
     ${THREAD_LIBRARY}
-    ${OSIP2_LIBRARY})
+    ${OSIP2_LIBRARY}
+    ${OSIPPARSER2_LIBRARY})
 
-INSTALL(PROGRAMS
+install(PROGRAMS
     ${CMAKE_BINARY_DIR}/siptools
     DESTINATION
     ${CMAKE_INSTALL_PREFIX}/sbin)
