@@ -10,24 +10,62 @@
 #include <logger.h>
 #include <thread.h>
 
-std::unique_ptr<std::queue<logmsg>> logmsg_task = 0;
+std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> log::logmsg_task;
+
 lock log::log_lock;
 cond log::log_cond;
 int log::run = 0;
 
-logmsg::logmsg(const std::unique_ptr<std::string> &timestamp, const std::unique_ptr<std::string> &file, int line, long tid,
-		const std::unique_ptr<std::string> &level, const std::unique_ptr<std::string> &data)
+const std::shared_ptr<std::string> & logmsg::get_logmsg_timestamp() const
+{
+	return timestamp;
+}
+
+const std::shared_ptr<std::string> & logmsg::get_logmsg_file() const
+{
+	return file;
+}
+
+const std::shared_ptr<std::string> & logmsg::get_logmsg_level() const
+{
+	return level;
+}
+
+const std::shared_ptr<std::string> & logmsg::get_logmsg_data() const
+{
+	return data;
+}
+
+int logmsg::get_logmsg_line() const
+{
+	return line;
+}
+
+long logmsg::get_logmsg_tid() const
+{
+	return tid;
+}
+
+logmsg::logmsg(const std::shared_ptr<std::string> &timestamp, const std::shared_ptr<std::string> &file, int line, long tid,
+		const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data)
 	: timestamp(timestamp), file(file), line(line), tid(tid), level(level), data(data)
-{}
+{
+}
 
 logmsg::~logmsg()
 {
 }
 
-void log::log_push(const std::unique_ptr<logmsg> &msg_ptr)
+void log::log_push(const std::shared_ptr<logmsg> &msg_ptr)
 {
+	if (NULL == logmsg_task) {
+		std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> ptr(new std::queue<std::shared_ptr<logmsg>>);
+
+		logmsg_task = ptr;
+	}
+
 	log_lock.mutex_lock();
-	//logmsg_task->push(msg_ptr);
+	logmsg_task->push(msg_ptr);
 	log_cond.cond_signal();
 	log_lock.mutex_unlock();
 }
@@ -90,13 +128,13 @@ void sip_log_print(int level, const char *file, int line, const char *format, ..
 	len = vasprintf(&buffer, format, ap);
 	va_end(ap);
 
-	log::log_push(std::unique_ptr<logmsg>(new logmsg(
-		std::unique_ptr<std::string>(new std::string(date)),
-		std::unique_ptr<std::string>(new std::string(filename)),
+	log::log_push(std::shared_ptr<logmsg>(new logmsg(
+		std::shared_ptr<std::string>(new std::string(date)),
+		std::shared_ptr<std::string>(new std::string(filename)),
 		line,
 		tid,
-		std::unique_ptr<std::string>(new std::string("")),
-		std::unique_ptr<std::string>(new std::string(buffer)))));
+		std::shared_ptr<std::string>(new std::string("")),
+		std::shared_ptr<std::string>(new std::string(buffer)))));
 
 	fprintf(stdout, "[%s] [%ld] %s:%d -- %s\n", date, tid, file, line, buffer);
 

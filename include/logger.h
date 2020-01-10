@@ -9,15 +9,22 @@
 
 class logmsg {
 public:
-	logmsg(const std::unique_ptr<std::string> &timestamp, const std::unique_ptr<std::string> &file, int line, long tid,
-		const std::unique_ptr<std::string> &level, const std::unique_ptr<std::string> &data);
+	logmsg(const std::shared_ptr<std::string> &timestamp, const std::shared_ptr<std::string> &file, int line, long tid,
+		const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data);
 	~logmsg();
+
+	const std::shared_ptr<std::string> & get_logmsg_timestamp() const;
+	const std::shared_ptr<std::string> & get_logmsg_file() const;
+	const std::shared_ptr<std::string> & get_logmsg_level() const;
+	const std::shared_ptr<std::string> & get_logmsg_data() const;
+	int get_logmsg_line() const;
+	long get_logmsg_tid() const;
 protected:
 private:
-	const std::unique_ptr<std::string> &timestamp;
-	const std::unique_ptr<std::string> &file;
-	const std::unique_ptr<std::string> &level;
-	const std::unique_ptr<std::string> &data;
+	const std::shared_ptr<std::string> & timestamp;
+	const std::shared_ptr<std::string> & file;
+	const std::shared_ptr<std::string> & level;
+	const std::shared_ptr<std::string> & data;
 	int line;
 	long tid;
 };
@@ -36,13 +43,13 @@ public:
 	log();
 	~log();
 
-	static void log_push(const std::unique_ptr<logmsg> &msg_ptr);
+	static void log_push(const std::shared_ptr<logmsg> &msg_ptr);
 	void log_pop();
 	void run_thread(void *data);
 	void set_run(int run);
 protected:
 private:
-	static std::unique_ptr<std::queue<logmsg>> logmsg_task;
+	static std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> logmsg_task;
 	static cond log_cond;
 	static lock log_lock;
 	static int run;
