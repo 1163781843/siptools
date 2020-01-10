@@ -84,7 +84,7 @@ void log::log_pop()
 
 void log::run_thread(void *data)
 {
-	printf("[%ld]===========================, run[%d], [%p]\n", syscall(SYS_gettid), run, &run);
+	printf("[%d]===========================, run[%d]\n", syscall(SYS_gettid), run);
 	while (run) {
 		log_pop();
 	}

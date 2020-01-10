@@ -35,8 +35,7 @@ int main(int argc, const char **argv)
 #endif
 
 	std::shared_ptr<std::string> msg(new std::string());
-	std::shared_ptr<log> logobject(new log);
-#if 0
+	std::shared_ptr<class log> logobject(new class log);
 
 	logobject->set_run(1);
 	logobject->start_thread(logobject.get());
@@ -47,12 +46,6 @@ int main(int argc, const char **argv)
 
 	logobject->set_run(0);
 	logobject->join_thread();
-#endif
-
-#if 0
-	delete logobject;
-	logobject = nullptr;
-#endif
 
 	return 0;
 }
