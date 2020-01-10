@@ -134,7 +134,7 @@ int thread::start_thread(void *data)
 		return status;
 	}
 
-	status = pthread_create(&pthread, &attr, start_routine, this);
+	status = pthread_create(&pthread, &attr, start_routine, data);
 	if (status) {
 		log_print(log::log_error, "pthread_create failure!\n");
 		return status;

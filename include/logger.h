@@ -7,7 +7,8 @@
 
 #include <thread.h>
 
-class logmsg {
+class logmsg
+{
 public:
 	logmsg(const std::shared_ptr<std::string> &timestamp, const std::shared_ptr<std::string> &file, int line, long tid,
 		const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data);
@@ -29,7 +30,7 @@ private:
 	long tid;
 };
 
-class log : protected thread
+class log : public thread
 {
 public:
 	enum {

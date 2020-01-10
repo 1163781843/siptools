@@ -76,11 +76,15 @@ void log::log_pop()
 
 	log_lock.mutex_lock();
 	log_cond.cond_timedwait(log_lock, &abstime);
+	while (!logmsg_task->empty()) {
+		logmsg_task->pop();
+	}
 	log_lock.mutex_unlock();
 }
 
 void log::run_thread(void *data)
 {
+	printf("[%ld]===========================, run[%d], [%p]\n", syscall(SYS_gettid), run, &run);
 	while (run) {
 		log_pop();
 	}
@@ -89,6 +93,8 @@ void log::run_thread(void *data)
 void log::set_run(int run)
 {
 	run = run;
+
+	printf("[%ld]===========================, run[%d], [%p]\n", syscall(SYS_gettid), run, &run);
 }
 
 log::log()
@@ -130,13 +136,13 @@ void sip_log_print(int level, const char *file, int line, const char *format, ..
 
 	log::log_push(std::shared_ptr<logmsg>(new logmsg(
 		std::shared_ptr<std::string>(new std::string(date)),
-		std::shared_ptr<std::string>(new std::string(filename)),
+		std::shared_ptr<std::string>(filename ? (new std::string(++filename)) : (new std::string(file))),
 		line,
 		tid,
 		std::shared_ptr<std::string>(new std::string("")),
 		std::shared_ptr<std::string>(new std::string(buffer)))));
 
-	fprintf(stdout, "[%s] [%ld] %s:%d -- %s\n", date, tid, file, line, buffer);
+	fprintf(stdout, "[%s] [%ld] %s:%d -- %s\n", date, tid, filename, line, buffer);
 
 	if (buffer) {
 		free(buffer);
