@@ -1,3 +1,6 @@
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #include <thread.h>
 
 #include <errcode.h>
@@ -6,6 +9,7 @@
 lock::lock()
 {
 	int status = errorcode::SIPTOOLS_SUCCESS;
+
 	pthread_mutexattr_t mattr;
 	status = pthread_mutexattr_init(&mattr);
 	if (status) {
@@ -14,76 +18,84 @@ lock::lock()
 
 	pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_RECURSIVE);
 
-	status = pthread_mutex_init(&mlock, &mattr);
+	mlock = new pthread_mutex_t;
+	if (nullptr == mlock) {
+		goto end;
+	}
+
+	status = pthread_mutex_init(mlock, &mattr);
 	if (status) {
 		log_print(log::log_error, "pthread_mutex_init failure!\n");
 	}
 
+end:
 	pthread_mutexattr_destroy(&mattr);
 }
 
 lock::~lock()
 {
-	pthread_mutex_destroy(&mlock);
+	pthread_mutex_destroy(mlock);
+
+	delete mlock;
+	mlock = nullptr;
 }
 
 int lock::mutex_lock()
 {
-	return pthread_mutex_lock(&mlock);
+	return pthread_mutex_lock(mlock);
 }
 
 int lock::mutex_trylock()
 {
-	return pthread_mutex_trylock(&mlock);
+	return pthread_mutex_trylock(mlock);
 }
 
 int lock::mutex_unlock()
 {
-	return pthread_mutex_lock(&mlock);
+	return pthread_mutex_lock(mlock);
 }
 
-pthread_mutex_t lock::mutex_get_lock() const
+pthread_mutex_t *lock::mutex_get_lock() const
 {
 	return mlock;
 }
 
 cond::cond()
 {
-	pthread_cond_init(&thread_cond, NULL);
+	thread_cond = new pthread_cond_t;
+
+	pthread_cond_init(thread_cond, NULL);
 }
 
 cond::~cond()
 {
-	pthread_cond_destroy(&thread_cond);
+	pthread_cond_destroy(thread_cond);
+
+	delete thread_cond;
+	thread_cond = nullptr;
 }
 
 int cond::cond_signal()
 {
-	return pthread_cond_signal(&thread_cond);
+	return pthread_cond_signal(thread_cond);
 }
 
 int cond::cond_broadcast()
 {
-	return pthread_cond_broadcast(&thread_cond);
+	return pthread_cond_broadcast(thread_cond);
 }
 
 int cond::cond_wait(lock &mutex)
 {
-	int status = errorcode::SIPTOOLS_SUCCESS;
-	pthread_mutex_t mlock = mutex.mutex_get_lock();
-
-	return pthread_cond_wait(&thread_cond, &mlock);
+	return pthread_cond_wait(thread_cond, mutex.mutex_get_lock());
 }
 
 int cond::cond_timedwait(lock &mutex, const struct timespec *abstime)
 {
-	int status = errorcode::SIPTOOLS_SUCCESS;
-	pthread_mutex_t mlock = mutex.mutex_get_lock();
-
-	return pthread_cond_timedwait(&thread_cond, &mlock, abstime);
+	return pthread_cond_timedwait(thread_cond, mutex.mutex_get_lock(), abstime);
 }
 
-pthread_cond_t cond::cond_get() const
+pthread_cond_t *cond::cond_get() const
 {
 	return thread_cond;
 }

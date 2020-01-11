@@ -12,8 +12,9 @@
 
 std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> log::logmsg_task;
 
-lock log::log_lock;
-cond log::log_cond;
+std::shared_ptr<cond> log::log_cond;
+std::shared_ptr<lock> log::log_lock;
+
 int log::run = 0;
 
 const std::shared_ptr<std::string> & logmsg::get_logmsg_timestamp() const
@@ -47,7 +48,7 @@ long logmsg::get_logmsg_tid() const
 }
 
 logmsg::logmsg(const std::shared_ptr<std::string> &timestamp, const std::shared_ptr<std::string> &file, int line, long tid,
-		const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data)
+	const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data)
 	: timestamp(timestamp), file(file), line(line), tid(tid), level(level), data(data)
 {
 }
@@ -58,33 +59,33 @@ logmsg::~logmsg()
 
 void log::log_push(const std::shared_ptr<logmsg> &msg_ptr)
 {
-	if (NULL == logmsg_task) {
-		std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> ptr(new std::queue<std::shared_ptr<logmsg>>);
-
-		logmsg_task = ptr;
-	}
-
-	log_lock.mutex_lock();
+	log_lock->mutex_lock();
 	logmsg_task->push(msg_ptr);
-	log_cond.cond_signal();
-	log_lock.mutex_unlock();
+	log_cond->cond_signal();
+	log_lock->mutex_unlock();
 }
 
 void log::log_pop()
 {
-	const struct timespec abstime = {0};
+	struct timeval now;
+	struct timespec abstime = {0};
+	gettimeofday(&now, NULL);
+	abstime.tv_sec = now.tv_sec + 1;
+	abstime.tv_nsec = 0;
 
-	log_lock.mutex_lock();
-	log_cond.cond_timedwait(log_lock, &abstime);
+	log_lock->mutex_lock();
+	log_cond->cond_timedwait(*log_lock.get(), &abstime);
+	printf("[%s:%d] [%ld], run[%d], this[%p], logmsg_task->empty()[%d], size[%ld]\n", __FILE__, __LINE__, syscall(SYS_gettid), this->run, this, logmsg_task->empty(), logmsg_task->size());
 	while (!logmsg_task->empty()) {
+		std::shared_ptr<logmsg> msg(logmsg_task->front());
+		fprintf(stdout, "%s", msg->get_logmsg_timestamp()->c_str());
 		logmsg_task->pop();
 	}
-	log_lock.mutex_unlock();
+	log_lock->mutex_unlock();
 }
 
 void log::run_thread(void *data)
 {
-	printf("[%d]===========================, run[%d]\n", syscall(SYS_gettid), run);
 	while (run) {
 		log_pop();
 	}
@@ -92,13 +93,25 @@ void log::run_thread(void *data)
 
 void log::set_run(int run)
 {
-	run = run;
-
-	printf("[%ld]===========================, run[%d], [%p]\n", syscall(SYS_gettid), run, &run);
+	this->run = run;
 }
 
 log::log()
 {
+	if (nullptr == logmsg_task) {
+		std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> ptr(new std::queue<std::shared_ptr<logmsg>>);
+		logmsg_task = ptr;
+	}
+
+	if (nullptr == log_lock) {
+		std::shared_ptr<lock> loglock(new lock());
+		log_lock = loglock;
+	}
+
+	if (nullptr == log_cond) {
+		std::shared_ptr<cond> logcond(new cond());
+		log_cond = logcond;
+	}
 }
 
 log::~log()
@@ -139,10 +152,10 @@ void sip_log_print(int level, const char *file, int line, const char *format, ..
 		std::shared_ptr<std::string>(filename ? (new std::string(++filename)) : (new std::string(file))),
 		line,
 		tid,
-		std::shared_ptr<std::string>(new std::string("")),
+		std::shared_ptr<std::string>(new std::string("\033[32;1mDEBUG\33[0m")),
 		std::shared_ptr<std::string>(new std::string(buffer)))));
 
-	fprintf(stdout, "[%s] [%ld] %s:%d -- %s\n", date, tid, filename, line, buffer);
+	//fprintf(stdout, "[%s] [%ld] %s:%d -- %s\n", date, tid, filename, line, buffer);
 
 	if (buffer) {
 		free(buffer);

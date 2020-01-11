@@ -12,10 +12,10 @@ public:
 	int mutex_lock();
 	int mutex_trylock();
 	int mutex_unlock();
-	pthread_mutex_t mutex_get_lock() const;
+	pthread_mutex_t *mutex_get_lock() const;
 protected:
 private:
-	pthread_mutex_t mlock;
+	pthread_mutex_t *mlock;
 };
 
 class cond
@@ -28,10 +28,10 @@ public:
 	int cond_broadcast();
 	int cond_wait(lock &mutex);
 	int cond_timedwait(lock &mutex, const struct timespec *abstime);
-	pthread_cond_t cond_get() const;
+	pthread_cond_t *cond_get() const;
 protected:
 private:
-	pthread_cond_t thread_cond;
+	pthread_cond_t *thread_cond;
 };
 
 class thread

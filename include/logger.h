@@ -51,8 +51,8 @@ public:
 protected:
 private:
 	static std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> logmsg_task;
-	static cond log_cond;
-	static lock log_lock;
+	static std::shared_ptr<cond> log_cond;
+	static std::shared_ptr<lock> log_lock;
 	static int run;
 };
 
