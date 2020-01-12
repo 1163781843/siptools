@@ -52,7 +52,7 @@ int lock::mutex_trylock()
 
 int lock::mutex_unlock()
 {
-	return pthread_mutex_lock(mlock);
+	return pthread_mutex_unlock(mlock);
 }
 
 pthread_mutex_t *lock::mutex_get_lock() const

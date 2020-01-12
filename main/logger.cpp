@@ -61,6 +61,7 @@ void log::log_push(const std::shared_ptr<logmsg> &msg_ptr)
 {
 	log_lock->mutex_lock();
 	logmsg_task->push(msg_ptr);
+	fprintf(stdout, "%s, msg_ptr.use_count()[%d], msg_ptr[%p]\n", msg_ptr->get_logmsg_data()->c_str(), msg_ptr.use_count(), msg_ptr.get());
 	log_cond->cond_signal();
 	log_lock->mutex_unlock();
 }
@@ -75,12 +76,22 @@ void log::log_pop()
 
 	log_lock->mutex_lock();
 	log_cond->cond_timedwait(*log_lock.get(), &abstime);
-	printf("[%s:%d] [%ld], run[%d], this[%p], logmsg_task->empty()[%d], size[%ld]\n", __FILE__, __LINE__, syscall(SYS_gettid), this->run, this, logmsg_task->empty(), logmsg_task->size());
-	while (!logmsg_task->empty()) {
+
+#if 0
+	for (int i = 0; i < logmsg_task->size(); i++) {
+		std::cout << logmsg_task->front()->get_logmsg_level()->c_str() << std::endl;
+	}
+#endif
+
+#if 1
+	while (logmsg_task->size()) {
+		//printf("logmsg_task->empty()[%d], logmsg_task->size()[%ld]\n", logmsg_task->empty(), logmsg_task->size());
 		std::shared_ptr<logmsg> msg(logmsg_task->front());
-		fprintf(stdout, "%s", msg->get_logmsg_timestamp()->c_str());
+		fprintf(stdout, "%s, msg[%p], logmsg_task->front().use_count[%d]\n", logmsg_task->front()->get_logmsg_data()->c_str(), msg.get(), logmsg_task->front().use_count());
+		abort();
 		logmsg_task->pop();
 	}
+#endif
 	log_lock->mutex_unlock();
 }
 
