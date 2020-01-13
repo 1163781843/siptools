@@ -32,13 +32,16 @@ public:
 	unsigned short tport_get_remote_port() const;
 
 	int tport_bind_addr();
+
+	unsigned int tport_recvfrom(char *buffer, size_t len);
+	unsigned int tport_sendto(const char *buffer, size_t len);
 protected:
 private:
 	int sockfd;
 	struct sockaddr local_addr;
 	struct sockaddr remote_addr;
-	int local_addrlen;
-	int remote_addrlen;
+	socklen_t local_addrlen;
+	socklen_t remote_addrlen;
 };
 
 #endif

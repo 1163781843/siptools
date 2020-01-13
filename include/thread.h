@@ -4,6 +4,8 @@
 #include <pthread.h>
 #include <signal.h>
 
+class cond;
+
 class lock
 {
 public:
@@ -15,6 +17,7 @@ public:
 	pthread_mutex_t *mutex_get_lock() const;
 protected:
 private:
+	friend class cond;
 	pthread_mutex_t *mlock;
 };
 
@@ -28,6 +31,7 @@ public:
 	int cond_broadcast();
 	int cond_wait(lock &mutex);
 	int cond_timedwait(lock &mutex, const struct timespec *abstime);
+	int cond_timedwait(lock &mutex, int nsecond);
 	pthread_cond_t *cond_get() const;
 protected:
 private:

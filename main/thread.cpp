@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 
 #include <thread.h>
 
@@ -85,14 +86,33 @@ int cond::cond_broadcast()
 	return pthread_cond_broadcast(thread_cond);
 }
 
-int cond::cond_wait(lock &mutex)
+int cond::cond_wait(lock & mutex)
 {
-	return pthread_cond_wait(thread_cond, mutex.mutex_get_lock());
+	return pthread_cond_wait(thread_cond, mutex.mlock);
 }
 
-int cond::cond_timedwait(lock &mutex, const struct timespec *abstime)
+int cond::cond_timedwait(lock & mutex, int nsecond)
 {
-	return pthread_cond_timedwait(thread_cond, mutex.mutex_get_lock(), abstime);
+	struct timeval t;
+	struct timespec ts;
+
+	gettimeofday(&t, NULL);
+	ts.tv_sec = t.tv_sec;
+	ts.tv_nsec= t.tv_usec * 1000;
+
+	ts.tv_sec += nsecond / 1000000000;
+	ts.tv_nsec+= nsecond % 1000000000;
+	if (ts.tv_nsec >= 1000000000) {
+		ts.tv_nsec -= 1000000000;
+		ts.tv_sec += 1;
+	}
+
+	return pthread_cond_timedwait(thread_cond, mutex.mlock, &ts);
+}
+
+int cond::cond_timedwait(lock & mutex, const struct timespec *abstime)
+{
+	return pthread_cond_timedwait(thread_cond, mutex.mlock, abstime);
 }
 
 pthread_cond_t *cond::cond_get() const
@@ -112,7 +132,7 @@ int thread::start_thread()
 	pthread_attr_t attr;
 	int status = errorcode::SIPTOOLS_SUCCESS;
 
-	this->data = NULL;
+	this->data = nullptr;
 
 	status = pthread_attr_init(&attr);
 	if (status) {
@@ -138,6 +158,8 @@ int thread::start_thread(void *data)
 
 	if (data) {
 		this->data = data;
+	} else {
+		this->data = nullptr;
 	}
 
 	status = pthread_attr_init(&attr);
@@ -146,7 +168,7 @@ int thread::start_thread(void *data)
 		return status;
 	}
 
-	status = pthread_create(&pthread, &attr, start_routine, data);
+	status = pthread_create(&pthread, &attr, start_routine, this);
 	if (status) {
 		log_print(log::log_error, "pthread_create failure!\n");
 		return status;

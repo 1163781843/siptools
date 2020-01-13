@@ -48,7 +48,7 @@ long logmsg::get_logmsg_tid() const
 }
 
 logmsg::logmsg(const std::shared_ptr<std::string> &timestamp, const std::shared_ptr<std::string> &file, int line, long tid,
-	const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data)
+		const std::shared_ptr<std::string> &level, const std::shared_ptr<std::string> &data)
 	: timestamp(timestamp), file(file), line(line), tid(tid), level(level), data(data)
 {
 }
@@ -61,37 +61,27 @@ void log::log_push(const std::shared_ptr<logmsg> &msg_ptr)
 {
 	log_lock->mutex_lock();
 	logmsg_task->push(msg_ptr);
-	fprintf(stdout, "%s, msg_ptr.use_count()[%d], msg_ptr[%p]\n", msg_ptr->get_logmsg_data()->c_str(), msg_ptr.use_count(), msg_ptr.get());
 	log_cond->cond_signal();
 	log_lock->mutex_unlock();
 }
 
 void log::log_pop()
 {
-	struct timeval now;
-	struct timespec abstime = {0};
-	gettimeofday(&now, NULL);
-	abstime.tv_sec = now.tv_sec + 1;
-	abstime.tv_nsec = 0;
-
 	log_lock->mutex_lock();
-	log_cond->cond_timedwait(*log_lock.get(), &abstime);
+	log_cond->cond_timedwait(*log_lock.get(), 1000000000);
 
-#if 0
-	for (int i = 0; i < logmsg_task->size(); i++) {
-		std::cout << logmsg_task->front()->get_logmsg_level()->c_str() << std::endl;
-	}
-#endif
-
-#if 1
 	while (logmsg_task->size()) {
-		//printf("logmsg_task->empty()[%d], logmsg_task->size()[%ld]\n", logmsg_task->empty(), logmsg_task->size());
 		std::shared_ptr<logmsg> msg(logmsg_task->front());
-		fprintf(stdout, "%s, msg[%p], logmsg_task->front().use_count[%d]\n", logmsg_task->front()->get_logmsg_data()->c_str(), msg.get(), logmsg_task->front().use_count());
-		abort();
+		fprintf(stdout, "[%s] %s[%ld]: %s:%d  %s\n",
+			msg->get_logmsg_timestamp()->c_str(),
+			msg->get_logmsg_level()->c_str(),
+			msg->get_logmsg_tid(),
+			msg->get_logmsg_file()->c_str(),
+			msg->get_logmsg_line(),
+			msg->get_logmsg_data()->c_str());
 		logmsg_task->pop();
 	}
-#endif
+
 	log_lock->mutex_unlock();
 }
 
@@ -100,6 +90,24 @@ void log::run_thread(void *data)
 	while (run) {
 		log_pop();
 	}
+}
+
+const char *log::get_level(int level)
+{
+	switch (level) {
+	case log_error:
+		return "\033[31;1mERROR\33[0m";
+	case log_warning:
+		return "\033[32;31;1mWARRING\33[0m";
+	case log_noitce:
+		return "\033[33;1mNOTICE\33[0m";
+	case log_debug:
+		return "\033[32;1mDEBUG\33[0m";
+	case log_verb:
+		return "\033[32mVERBOSE\33[0m";
+	};
+
+	return "\033[32;1mDEBUG\33[0m";
 }
 
 void log::set_run(int run)
@@ -158,12 +166,14 @@ void sip_log_print(int level, const char *file, int line, const char *format, ..
 	len = vasprintf(&buffer, format, ap);
 	va_end(ap);
 
+	std::shared_ptr<std::string> cur_date(new std::string(date));
+
 	log::log_push(std::shared_ptr<logmsg>(new logmsg(
-		std::shared_ptr<std::string>(new std::string(date)),
+		cur_date,
 		std::shared_ptr<std::string>(filename ? (new std::string(++filename)) : (new std::string(file))),
 		line,
 		tid,
-		std::shared_ptr<std::string>(new std::string("\033[32;1mDEBUG\33[0m")),
+		std::shared_ptr<std::string>(new std::string(log::get_level(level))),
 		std::shared_ptr<std::string>(new std::string(buffer)))));
 
 	//fprintf(stdout, "[%s] [%ld] %s:%d -- %s\n", date, tid, filename, line, buffer);

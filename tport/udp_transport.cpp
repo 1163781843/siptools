@@ -94,6 +94,23 @@ unsigned short udp_tport::tport_get_remote_port() const
 
 
 int udp_tport::tport_bind_addr()
+{
+	return ::bind(sockfd, &local_addr, local_addrlen);
+}
+
+unsigned int udp_tport::tport_recvfrom(char *buffer, size_t len)
+{
+	unsigned int retval = 0;
+
+	retval = ::recvfrom(sockfd, buffer, len, 0, &local_addr, &local_addrlen);
+	if (retval > 0) {
+		buffer[retval] = '\0';
+	}
+
+	return retval;
+}
+
+unsigned int udp_tport::tport_sendto(const char *buffer, size_t len)
 {}
 
 udp_tport::udp_tport() : sockfd(-1)

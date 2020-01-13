@@ -22,10 +22,10 @@ public:
 	long get_logmsg_tid() const;
 protected:
 private:
-	const std::shared_ptr<std::string> & timestamp;
-	const std::shared_ptr<std::string> & file;
-	const std::shared_ptr<std::string> & level;
-	const std::shared_ptr<std::string> & data;
+	const std::shared_ptr<std::string> timestamp;
+	const std::shared_ptr<std::string> file;
+	const std::shared_ptr<std::string> level;
+	const std::shared_ptr<std::string> data;
 	int line;
 	long tid;
 };
@@ -48,6 +48,7 @@ public:
 	void log_pop();
 	void run_thread(void *data);
 	void set_run(int run);
+	static const char *get_level(int level);
 protected:
 private:
 	static std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> logmsg_task;
