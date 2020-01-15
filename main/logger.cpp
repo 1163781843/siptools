@@ -14,8 +14,51 @@ std::shared_ptr<std::queue<std::shared_ptr<logmsg>>> log::logmsg_task;
 
 std::shared_ptr<cond> log::log_cond;
 std::shared_ptr<lock> log::log_lock;
-
 int log::run = 0;
+
+static int elim_spec_string(char *data, char delim, char **array, int arraylen);
+#define arraylen(array) (sizeof(array) / sizeof(array[0]))
+#define elim_string(data, delim, array) elim_spec_string((data), (delim), (array), arraylen(array))
+ 
+static int string_char_delim(char *data, char delim, char **array, int arraylen)
+{
+	int count = 0;
+	char *ptr = data;
+
+	enum tokenizer_state {
+		START,
+		FIND_DELIM
+	} state = START;
+
+	while (*ptr && (count < arraylen)) {
+		switch (state) {
+		case START:
+			array[count++] = ptr;
+			state = FIND_DELIM;
+			break;
+		case FIND_DELIM:
+			if (delim == *ptr) {
+				*ptr = '\0';
+				state = START;
+			}
+			++ptr;
+			break;
+		}
+	}
+
+	return count;
+}
+
+static int elim_spec_string(char *data, char delim, char **array, int arraylen)
+{
+	if (!data || !array || !arraylen) {
+		return 0;
+	}
+
+	memset(array, 0, arraylen * sizeof(*array));
+
+	return string_char_delim(data, delim, array, arraylen);
+}
 
 const std::shared_ptr<std::string> & logmsg::get_logmsg_timestamp() const
 {
@@ -67,18 +110,32 @@ void log::log_push(const std::shared_ptr<logmsg> &msg_ptr)
 
 void log::log_pop()
 {
+	int argc = 0, i;
+	char *dupstr = NULL;
+	char *lines[1024] = {0};
+	char strbuffer[65535] = {0};
+	int bufferlen = 0;
+
 	log_lock->mutex_lock();
 	log_cond->cond_timedwait(*log_lock.get(), 1000000000);
 
 	while (logmsg_task->size()) {
 		std::shared_ptr<logmsg> msg(logmsg_task->front());
-		fprintf(stdout, "[%s] %s[%ld]: %s:%d  %s\n",
+
+		argc = elim_string((dupstr = strdup(msg->get_logmsg_data()->c_str())), '\n', lines);
+		for (i = 0; i < argc; i++) {
+			if (strlen(lines[i])) {
+				bufferlen += snprintf(strbuffer + bufferlen, sizeof(strbuffer) - bufferlen, "%s\n", lines[i]);
+			}
+		}
+
+		fprintf(stdout, "[%s] %s[%ld]: %s:%d  %s",
 			msg->get_logmsg_timestamp()->c_str(),
 			msg->get_logmsg_level()->c_str(),
 			msg->get_logmsg_tid(),
 			msg->get_logmsg_file()->c_str(),
 			msg->get_logmsg_line(),
-			msg->get_logmsg_data()->c_str());
+			strbuffer);
 		logmsg_task->pop();
 	}
 
